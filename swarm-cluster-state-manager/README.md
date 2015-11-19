@@ -30,6 +30,20 @@ Usage of swarm-cluster-state-manager:
 By default `swarm-cluster-state-manager` will listen for remote connections on https://127.0.0.1:2476.
 TLS client authentication is required, see next section.
 
+#### Docker Compose
+
+Launch swarm-cluster-state-manager on the same Docker host as the swarm-master:
+
+```
+$ eval $(docker-machine env swarm-master)
+```
+
+```
+$ docker-compose -d up
+```
+
+#### Binary
+
 ```
 $ swarm-cluster-state-manager \
   --addr 127.0.0.1:2476 \

@@ -37,9 +37,9 @@ func init() {
 	flag.StringVar(&addr, "addr", "127.0.0.1:2476", "HTTP listen address")
 	flag.StringVar(&swarmManager, "swarm-manager", "tcp://127.0.0.1:2376", "Docker Swarm manager address")
 	flag.BoolVar(&insecureSkipVerify, "insecure-skip-verify", false, "Skip server certificate verification")
-	flag.StringVar(&tlscacert, "tlscacert", "~/.docker/ca.pem", "Trust certs signed only by this CA")
-	flag.StringVar(&tlscert, "tlscert", "~/.docker/cert.pem", "Path to TLS certificate file")
-	flag.StringVar(&tlskey, "tlskey", "~/.docker/key.pem", "Path to TLS key file")
+	flag.StringVar(&tlscacert, "tlscacert", "~/.docker/machine/certs/ca.pem", "Trust certs signed only by this CA")
+	flag.StringVar(&tlscert, "tlscert", "~/.docker/machine/certs/cert.pem", "Path to TLS certificate file")
+	flag.StringVar(&tlskey, "tlskey", "~/.docker/machine/certs/key.pem", "Path to TLS key file")
 }
 
 func main() {

@@ -4,19 +4,36 @@ This is not an official Google product.
 
 ## Overview
 
-The Swarm cluster state manager is an example application on how cluster state could be managed in Swarm. The ideas for this come directly from Kubernetes.
+The Swarm cluster state manager is a simple prototype that demonstrates how cluster state could be managed for Docker Swarm. The ideas for this prototype are based on the Kubernetes pod replication controller.
 
 ## Usage
 
+```
+$ swarm-cluster-state-manager -h
+Usage of swarm-cluster-state-manager:
+  -addr string
+    	HTTP listen address (default "127.0.0.1:2476")
+  -insecure-skip-verify
+    	Skip server certificate verification
+  -swarm-manager string
+    	Docker Swarm manager address (default "tcp://127.0.0.1:2376")
+  -tlscacert string
+    	Trust certs signed only by this CA (default "~/.docker/machine/certs/ca.pem")
+  -tlscert string
+    	Path to TLS certificate file (default "~/.docker/machine/certs/cert.pem")
+  -tlskey string
+    	Path to TLS key file (default "~/.docker/machine/certs/key.pem")
+```
+
 ### Start the swarm cluster state manager
+
+By default `swarm-cluster-state-manager` will reuse the TLS certs created by docker-machine and will
+listen for remote connections on https://127.0.0.1:2476. TLS client authentication is required, see
+next section.
 
 ```
 $ swarm-cluster-state-manager \
-  --addr 127.0.0.1:2476 \
   --swarm-manager "tcp://104.197.107.13:2376" \
-  --tlscacert ~/.docker/machine/certs/ca.pem \
-  --tlscert ~/.docker/machine/certs/cert.pem \
-  --tlskey ~/.docker/machine/certs/key.pem
 ```
 ```
 Starting Swarm cluster state manager...
@@ -35,7 +52,7 @@ $ openssl pkcs12 -export \
   -out ~/.docker/machine/certs/cert.pfx 
 ```
 
-### Sumbit a new cluster state object
+### Submit a new cluster state object
 
 The following command submits a cluster state object named nginx and will ensure 5
 containers are started from the `nginx:1.9.6` Docker image.

@@ -15,7 +15,6 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -41,44 +40,6 @@ func init() {
 	flag.StringVar(&tlscacert, "tlscacert", "~/.docker/ca.pem", "Trust certs signed only by this CA")
 	flag.StringVar(&tlscert, "tlscert", "~/.docker/cert.pem", "Path to TLS certificate file")
 	flag.StringVar(&tlskey, "tlskey", "~/.docker/key.pem", "Path to TLS key file")
-}
-
-func GetClusterState(w http.ResponseWriter, r *http.Request) {
-	clusterStatus, err := clusterStateManager.ClusterStatus()
-	if err != nil {
-		log.Print(err)
-		w.WriteHeader(500)
-	}
-	data, err := json.MarshalIndent(clusterStatus, "", "  ")
-	if err != nil {
-		log.Print(err)
-		w.WriteHeader(500)
-	}
-	w.Write(data)
-}
-
-func SubmitClusterState(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	var cs ClusterState
-	err := decoder.Decode(&cs)
-	if err != nil {
-		log.Print(err)
-		w.WriteHeader(500)
-	}
-	if err := clusterStateManager.Submit(&cs); err != nil {
-		log.Print(err)
-		w.WriteHeader(500)
-	}
-}
-
-func RemoveClusterState(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	if name == "" {
-		log.Println("error removing cluster state: missing name parameter")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	clusterStateManager.Remove(name)
 }
 
 func main() {

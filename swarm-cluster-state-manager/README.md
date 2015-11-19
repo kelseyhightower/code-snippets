@@ -8,37 +8,57 @@ The Swarm cluster state manager is a simple prototype that demonstrates how clus
 
 ## Usage
 
-```
-$ swarm-cluster-state-manager -h
-Usage of swarm-cluster-state-manager:
-  -addr string
-    	HTTP listen address (default "127.0.0.1:2476")
-  -insecure-skip-verify
-    	Skip server certificate verification
-  -swarm-manager string
-    	Docker Swarm manager address (default "tcp://127.0.0.1:2376")
-  -tlscacert string
-    	Trust certs signed only by this CA
-  -tlscert string
-    	Path to TLS certificate file
-  -tlskey string
-    	Path to TLS key file
-```
-
 ### Start the swarm cluster state manager
 
-TLS client authentication is required, see next section.
+Get the swarm-master address using the `docker-machine env` command:
 
-#### Docker Compose
+```
+$ docker-machine env swarm-master --swarm
+```
+
+Output:
+
+```
+export DOCKER_TLS_VERIFY="1"
+export DOCKER_HOST="tcp://203.0.113.13:3376"
+export DOCKER_CERT_PATH="/Users/kelseyhightower/.docker/machine/machines/swarm-master"
+export DOCKER_MACHINE_NAME="swarm-master"
+# Run this command to configure your shell: 
+# eval "$(docker-machine env swarm-master --swarm)"
+```
+
+Edit the `docker-compose.yml` file and replace `SWARM_MASTER_ADDR` with your swarm-master address.
+
+```
+swarm-cluster-state-manager:
+  image: kelseyhightower/swarm-cluster-state-manager
+  volumes:
+    - /etc/docker:/etc/docker
+  command: |
+    --addr=0.0.0.0:3476
+    --swarm-manager="tcp://203.0.113.13:3376"
+    --tlscacert="/etc/docker/ca.pem"
+    --tlscert="/etc/docker/server.pem"
+    --tlskey="/etc/docker/server-key.pem"
+  external_links:
+    - swarm-agent-master
+  ports:
+    - "3476:3476"
+```
 
 Launch swarm-cluster-state-manager on the same Docker host as the swarm-master:
+
+Use the `eval` command to ensure your are pointing to the same Docker host where the swarm-master
+is running.
 
 ```
 $ eval $(docker-machine env swarm-master)
 ```
 
+Use the `docker-compose up` command to start the `swarm-cluster-state-manager` service:
+
 ```
-$ docker-compose -d up
+$ docker-compose up -d
 ```
 
 ### Reusing the Docker machine client certs

@@ -8,6 +8,8 @@ The Swarm cluster state manager is a simple prototype that demonstrates how clus
 
 ## Usage
 
+The following tutorial assumes you have [created a Docker Swarm cluster using Docker Machine](https://docs.docker.com/swarm/install-w-machine).
+
 ### Start the swarm cluster state manager
 
 Edit the `docker-compose.yml` file and replace `SWARM_MASTER_IP` with the swarm-master IP address.

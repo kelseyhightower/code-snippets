@@ -4,11 +4,9 @@ swarm-cluster-state-manager:
     - /etc/docker:/etc/docker
   command: |
     --addr=0.0.0.0:3476
-    --swarm-manager="tcp://swarm-agent-master:3376"
+    --swarm-manager="SWARM_MASTER_ADDR"
     --tlscacert="/etc/docker/ca.pem"
     --tlscert="/etc/docker/server.pem"
     --tlskey="/etc/docker/server-key.pem"
-  external_links:
-    - swarm-agent-master
   ports:
     - "3476:3476"

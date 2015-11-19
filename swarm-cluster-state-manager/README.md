@@ -73,7 +73,7 @@ containers are started from the `nginx:1.9.6` Docker image.
 ```
 $ curl -k https://127.0.0.1:2476/submit \
   -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 5}' \
-  --cert ~/.docker/machine/certs/cert.pfx
+  --cert ~/.docker/machine/certs/cert.pfx \
   --pass swarm
 ```
 
@@ -83,6 +83,6 @@ The following command retrieves the cluster status from the Swarm cluster state 
 
 ```
 $ curl -k https://127.0.0.1:2476/status \
-  --cert ~/.docker/machine/certs/cert.pfx
+  --cert ~/.docker/machine/certs/cert.pfx \
   --pass swarm
 ```

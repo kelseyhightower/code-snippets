@@ -43,7 +43,8 @@ Starting Swarm cluster state manager...
 
 #### OS X
 
-On OS X you'll need to create a pkcs12 bundle of the PEM encoded client certs.
+On OS X you'll need to create a pkcs12 bundle of the PEM encoded client certs in order
+to use them with cURL.
 
 ```
 $ openssl pkcs12 -export \
@@ -51,6 +52,15 @@ $ openssl pkcs12 -export \
   -inkey ~/.docker/machine/certs/key.pem \
   -out ~/.docker/machine/certs/cert.pfx 
 ```
+
+At the follow prompt set the export password to protect the cert and key:
+
+```
+Enter Export Password:
+Verifying - Enter Export Password:
+```
+
+Later examples assume the word `swarm` was used for the password.
 
 ### Submit a new cluster state object
 
@@ -60,7 +70,8 @@ containers are started from the `nginx:1.9.6` Docker image.
 ```
 $ curl -k https://127.0.0.1:2476/submit \
   -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 5}' \
-  --cert ~/.docker/machine/certs/cert.pfx:linux
+  --cert ~/.docker/machine/certs/cert.pfx
+  --pass swarm
 ```
 
 ### Get the current status
@@ -69,5 +80,6 @@ The following command retrieves the cluster status from the Swarm cluster state 
 
 ```
 $ curl -k https://127.0.0.1:2476/status \
-  --cert ~/.docker/machine/certs/cert.pfx:linux
+  --cert ~/.docker/machine/certs/cert.pfx
+  --pass swarm
 ```

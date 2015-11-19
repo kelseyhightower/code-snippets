@@ -41,6 +41,20 @@ func init() {
 	flag.StringVar(&tlskey, "tlskey", "~/.docker/key.pem", "Path to TLS key file")
 }
 
+func GetClusterState(w http.ResponseWriter, r *http.Request) {
+	clusterStatus, err := csm.Status()
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(500)
+	}
+	data, err := json.MarshalIndent(clusterStatus, "", "  ")
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(500)
+	}
+	w.Write(data)
+}
+
 func SubmitClusterState(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var cs ClusterState
@@ -74,9 +88,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Start the background job to sync desired state with Docker Swarm.
 	go csm.Sync()
 
 	http.HandleFunc("/submit", SubmitClusterState)
+	http.HandleFunc("/status", GetClusterState)
+
 	fmt.Println("Starting Swarm cluster state manager...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

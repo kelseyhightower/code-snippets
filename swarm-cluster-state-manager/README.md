@@ -8,7 +8,7 @@ The Swarm cluster state manager is an example application on how cluster state c
 
 ## Usage
 
-Start the swarm cluster state manager:
+### Start the swarm cluster state manager
 
 ```
 $ swarm-cluster-state-manager \
@@ -18,8 +18,14 @@ $ swarm-cluster-state-manager \
   --tlskey="~/.docker/machine/certs/key.pem"
 ```
 
-Sumbit a new cluster state object:
+### Sumbit a new cluster state object
 
 ```
-$ curl http://<swarm-cluster-state-manager:IP>:8080 -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 3}'
+$ curl http://<swarm-cluster-state-manager:IP>:8080/submit -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 3}'
+```
+
+### Get the current status
+
+```
+$ curl http://<swarm-cluster-state-manager:IP>:8080/status
 ```

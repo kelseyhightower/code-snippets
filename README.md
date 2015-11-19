@@ -1,2 +1,3 @@
 # code-snippets
-Random code snippets for talks and blogs
+
+Random code snippets for talks and blogs.

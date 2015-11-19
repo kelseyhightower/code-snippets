@@ -24,9 +24,10 @@ import (
 )
 
 var (
-	csm *ClusterStateManager
+	clusterStateManager *ClusterStateManager
 
 	addr               string
+	swarmManager       string
 	tlscacert          string
 	tlscert            string
 	tlskey             string
@@ -34,7 +35,8 @@ var (
 )
 
 func init() {
-	flag.StringVar(&addr, "addr", "tcp://127.0.0.1:2376", "Docker Swarm manager address")
+	flag.StringVar(&addr, "addr", "127.0.0.1:2476", "HTTP listen address")
+	flag.StringVar(&swarmManager, "swarm-manager", "tcp://127.0.0.1:2376", "Docker Swarm manager address")
 	flag.BoolVar(&insecureSkipVerify, "insecure-skip-verify", false, "Skip server certificate verification")
 	flag.StringVar(&tlscacert, "tlscacert", "~/.docker/ca.pem", "Trust certs signed only by this CA")
 	flag.StringVar(&tlscert, "tlscert", "~/.docker/cert.pem", "Path to TLS certificate file")
@@ -42,7 +44,7 @@ func init() {
 }
 
 func GetClusterState(w http.ResponseWriter, r *http.Request) {
-	clusterStatus, err := csm.Status()
+	clusterStatus, err := clusterStateManager.ClusterStatus()
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(500)
@@ -63,7 +65,20 @@ func SubmitClusterState(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		w.WriteHeader(500)
 	}
-	csm.Submit(&cs)
+	if err := clusterStateManager.Submit(&cs); err != nil {
+		log.Print(err)
+		w.WriteHeader(500)
+	}
+}
+
+func RemoveClusterState(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	if name == "" {
+		log.Println("error removing cluster state: missing name parameter")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	clusterStateManager.Remove(name)
 }
 
 func main() {
@@ -79,22 +94,32 @@ func main() {
 		log.Fatal(err)
 	}
 	certPool.AppendCertsFromPEM(caCert)
+
+	// TLS and TLS client authentication is required.
 	tlsConfig := &tls.Config{
+		ClientAuth:         tls.RequireAndVerifyClientCert,
+		ClientCAs:          certPool,
 		Certificates:       []tls.Certificate{clientCert},
 		RootCAs:            certPool,
 		InsecureSkipVerify: insecureSkipVerify,
 	}
-	csm, err = newClusterStateManager(addr, tlsConfig)
+
+	clusterStateManager, err = newClusterStateManager(swarmManager, tlsConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the background job to sync desired state with Docker Swarm.
-	go csm.Sync()
+	go clusterStateManager.Sync()
 
+	server := &http.Server{
+		Addr:      addr,
+		TLSConfig: tlsConfig,
+	}
 	http.HandleFunc("/submit", SubmitClusterState)
 	http.HandleFunc("/status", GetClusterState)
+	http.HandleFunc("/remove", RemoveClusterState)
 
 	fmt.Println("Starting Swarm cluster state manager...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(server.ListenAndServeTLS("", ""))
 }

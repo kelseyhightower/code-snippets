@@ -17,38 +17,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"sync"
 	"time"
 
 	"github.com/samalba/dockerclient"
 )
 
+// ClusterState holds the Swarm cluster state declaration.
 type ClusterState struct {
 	Count int
 	Image string
 	Name  string
+
+	// filters specifies an JSON encoded value of the filters used when
+	// processing containers list via the Docker API.
+	filters string
 }
 
+// ClusterStateStatus holds the Swarm cluster status status.
 type ClusterStateStatus struct {
-	Name         string
-	Image        string
+	Containers   []dockerclient.Container
 	CurrentCount int
 	DesiredCount int
-	Labels       []string
-	Containers   []dockerclient.Container
+	Image        string
+	Name         string
 }
 
+// A ClusterStateManager defines parameters for running a Swarm cluster state manager server.
 type ClusterStateManager struct {
-	dockerClient *dockerclient.DockerClient
-	Store        map[string]*ClusterState
-	mu           *sync.RWMutex
-}
+	// DockerClient specifies the Docker client by which individual
+	// Swarm requests are made.
+	DockerClient *dockerclient.DockerClient
 
-func (cm *ClusterStateManager) Submit(cs *ClusterState) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.Store[cs.Name] = cs
+	// Store specifies the in-memory data store for cluster state by name.
+	Store map[string]*ClusterState
+	sync.RWMutex
 }
 
 func newClusterStateManager(daemonUrl string, tlsConfig *tls.Config) (*ClusterStateManager, error) {
@@ -57,44 +60,59 @@ func newClusterStateManager(daemonUrl string, tlsConfig *tls.Config) (*ClusterSt
 	if err != nil {
 		return nil, err
 	}
-	return &ClusterStateManager{client, store, &sync.RWMutex{}}, nil
+	return &ClusterStateManager{DockerClient: client, Store: store}, nil
 }
 
-func (cm *ClusterStateManager) Status() ([]*ClusterStateStatus, error) {
+func (csm *ClusterStateManager) Submit(cs *ClusterState) error {
+	csm.Lock()
+	defer csm.Unlock()
+
+	log.Printf("updating %s cluster state", cs.Name)
+	filters, err := json.Marshal(map[string][]string{
+		"label": []string{fmt.Sprintf("swarm.cluster.state=%s", cs.Name)},
+	})
+	if err != nil {
+		return err
+	}
+	cs.filters = string(filters)
+	csm.Store[cs.Name] = cs
+	return nil
+}
+
+func (csm *ClusterStateManager) Remove(name string) {
+	csm.Lock()
+	defer csm.Unlock()
+	log.Printf("removing %s cluster state", name)
+	delete(csm.Store, name)
+}
+
+func (csm *ClusterStateManager) ClusterStatus() ([]*ClusterStateStatus, error) {
+	csm.RLock()
+	defer csm.RUnlock()
+
 	cs := make([]*ClusterStateStatus, 0)
-
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	for _, state := range cm.Store {
-		m := make(map[string][]string)
-		m["label"] = []string{fmt.Sprintf("com.swarm.app=%s", state.Name)}
-		data, err := json.Marshal(m)
+	for _, desiredState := range csm.Store {
+		containers, err := csm.DockerClient.ListContainers(false, false, desiredState.filters)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-		containers, err := cm.dockerClient.ListContainers(false, false, string(data))
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+
 		cs = append(cs, &ClusterStateStatus{
-			Name:         state.Name,
-			Image:        state.Image,
-			CurrentCount: len(containers),
-			DesiredCount: state.Count,
-			Labels:       m["label"],
 			Containers:   containers,
+			CurrentCount: len(containers),
+			DesiredCount: desiredState.Count,
+			Image:        desiredState.Image,
+			Name:         desiredState.Name,
 		})
 	}
 
 	return cs, nil
 }
 
-func (cm *ClusterStateManager) Sync() {
+func (csm *ClusterStateManager) Sync() {
 	for {
-		clusterStatus, err := cm.Status()
+		clusterStatus, err := csm.ClusterStatus()
 		if err != nil {
 			log.Print(err)
 			time.Sleep(5 * time.Second)
@@ -103,38 +121,46 @@ func (cm *ClusterStateManager) Sync() {
 
 		for _, status := range clusterStatus {
 			delta := status.DesiredCount - status.CurrentCount
+
 			if delta == 0 {
 				continue
 			}
 
 			if delta > 0 {
-				log.Printf("need to create %d containers", delta)
+				log.Printf("creating %d %s containers", delta, status.Name)
+
 				labels := make(map[string]string)
-				labels["com.swarm.app"] = status.Name
+				labels["swarm.cluster.state"] = status.Name
+
 				for i := 0; i < delta; i++ {
-					id, err := cm.dockerClient.CreateContainer(&dockerclient.ContainerConfig{Image: status.Image, Labels: labels}, "")
+					c := dockerclient.ContainerConfig{
+						Image:  status.Image,
+						Labels: labels,
+					}
+					id, err := csm.DockerClient.CreateContainer(&c, "")
 					if err != nil {
 						log.Print(err)
 						continue
 					}
-					err = cm.dockerClient.StartContainer(id, nil)
+					err = csm.DockerClient.StartContainer(id, nil)
 					if err != nil {
 						log.Print(err)
 						continue
 					}
-					log.Printf("created container: %s", id)
+					log.Printf("created %s container: %s", status.Name, id)
 				}
+
 				continue
 			}
 
-			log.Printf("need to delete %d containers", int(math.Abs(float64(delta))))
+			log.Printf("removing %d %s containers", -delta, status.Name)
 			for _, container := range status.Containers[status.DesiredCount:] {
-				err = cm.dockerClient.RemoveContainer(container.Id, true, true)
+				err = csm.DockerClient.RemoveContainer(container.Id, true, true)
 				if err != nil {
 					log.Print(err)
 					continue
 				}
-				log.Printf("deleted container: %s", container.Id)
+				log.Printf("removed %s container: %s", status.Name, container.Id)
 			}
 		}
 

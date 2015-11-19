@@ -10,46 +10,16 @@ The Swarm cluster state manager is a simple prototype that demonstrates how clus
 
 ### Start the swarm cluster state manager
 
-Get the swarm-master address using the `docker-machine env` command:
+Edit the `docker-compose.yml` file and replace `SWARM_MASTER_IP` with the swarm-master IP address.
 
 ```
-$ docker-machine env swarm-master --swarm
+$ sed -i -e "s/SWARM_MASTER_IP/$(docker-machine ip swarm-master)/g" docker-compose.yml
 ```
 
-Output:
+Launch the `swarm-cluster-state-manager` service on the same Docker host as the `swarm-master` service.
 
-```
-export DOCKER_TLS_VERIFY="1"
-export DOCKER_HOST="tcp://203.0.113.13:3376"
-export DOCKER_CERT_PATH="/Users/kelseyhightower/.docker/machine/machines/swarm-master"
-export DOCKER_MACHINE_NAME="swarm-master"
-# Run this command to configure your shell: 
-# eval "$(docker-machine env swarm-master --swarm)"
-```
-
-Edit the `docker-compose.yml` file and replace `SWARM_MASTER_ADDR` with your swarm-master address.
-
-```
-swarm-cluster-state-manager:
-  image: kelseyhightower/swarm-cluster-state-manager
-  volumes:
-    - /etc/docker:/etc/docker
-  command: |
-    --addr=0.0.0.0:3476
-    --swarm-manager="tcp://203.0.113.13:3376"
-    --tlscacert="/etc/docker/ca.pem"
-    --tlscert="/etc/docker/server.pem"
-    --tlskey="/etc/docker/server-key.pem"
-  external_links:
-    - swarm-agent-master
-  ports:
-    - "3476:3476"
-```
-
-Launch swarm-cluster-state-manager on the same Docker host as the swarm-master:
-
-Use the `eval` command to ensure your are pointing to the same Docker host where the swarm-master
-is running.
+Use the `eval` command to ensure your are pointing to the same Docker host where the `swarm-master` service
+is running:
 
 ```
 $ eval $(docker-machine env swarm-master)
@@ -86,15 +56,98 @@ Later examples assume the word `swarm` was used for the password.
 
 ### Submit a new cluster state object
 
+Use the `eval` command to ensure you are pointing to the swarm-master endpoint:
+
+```
+$ eval $(docker-machine env swarm-master --swarm)
+```
+
 The following command submits a cluster state object named nginx and will ensure 5
 containers are started from the `nginx:1.9.6` Docker image.
 
 ```
-$ curl https://<swarm-master-ip>:2476/submit \
+$ curl https://$(docker-machine ip swarm-master):3476/submit \
   -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 5}' \
   --cacert ~/.docker/machine/certs/ca.pem \
   --cert ~/.docker/machine/certs/cert.pfx \
   --pass swarm
+```
+
+Review the logs for the `swarm-cluster-state-manager` service:
+
+```
+$ docker logs swarm-cluster-state-manager
+```
+
+```
+Starting Swarm cluster state manager...
+2015/11/19 17:55:46 updating nginx cluster state
+2015/11/19 17:55:50 creating 5 nginx containers
+2015/11/19 17:55:50 created nginx container: f7ca99588905796b9a0fd6dcaf057e433170e876fd9500352770bd8d8096cc79
+2015/11/19 17:55:51 created nginx container: 1406e27db94b792906e4c86e76cf9c4ba703b3aefc4ee651ecc10826cd18c612
+2015/11/19 17:55:51 created nginx container: 7307b5221fb30f3373ecda4a9595774fcb8e673782b8ab73a4bc6053efb15749
+2015/11/19 17:55:51 created nginx container: c17f8163e375736a30c16a2b5ca58b70e5330908ae238d0f43e8c99049622514
+2015/11/19 17:55:51 created nginx container: 55b49c75914153603998e9e40687424d8a46890d392abd75b0f6276dc36c6b23
+```
+
+### Automatically replace deleted containers
+
+Use the `eval` command to ensure you are pointing to the swarm-master endpoint:
+
+```
+$ eval $(docker-machine env swarm-master --swarm)
+```
+
+All containers created by the `swarm-cluster-state-manager` service include a
+`swarm.cluster.state` label with the service name as the value.
+
+Run the following command to delete all containers defined by the nginx cluster
+state entry:
+
+```
+$ docker rm -f $(docker ps -f label=swarm.cluster.state=nginx -q)
+```
+
+Observe the `swarm-cluster-state-manager` service logs
+
+```
+$ docker logs swarm-cluster-state-manager
+```
+
+```
+Starting Swarm cluster state manager...
+2015/11/19 17:55:46 updating nginx cluster state
+2015/11/19 17:55:50 creating 5 nginx containers
+2015/11/19 17:55:50 created nginx container: f7ca99588905796b9a0fd6dcaf057e433170e876fd9500352770bd8d8096cc79
+....
+2015/11/19 18:00:01 creating 5 nginx containers
+2015/11/19 18:00:01 created nginx container: 67532a34aa04f346d1d0cae7947c4f64361da9058ba0b84ec4d4b57f9b443337
+2015/11/19 18:00:01 created nginx container: b3204f60b3d0130d357bcd429a46af54cb640e9068abed4ef281b9eba7969761
+2015/11/19 18:00:02 created nginx container: 88e00433c5c0e72c280f0af8ee9b5e1c73f1609d93d69665a8e175a4f958c67b
+2015/11/19 18:00:02 created nginx container: ad6ac5a04167bd5f81f61f547c91403ec93f3869c8174960d49a732959092b29
+2015/11/19 18:00:02 created nginx container: 7cc9afea05027875fc4100b30fe0fd65ef2bad9a68012c58b65b581ccddf4805
+```
+
+### Update the Cluster state
+
+```
+$ curl https://$(docker-machine ip swarm-master):3476/submit \
+  -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 3}' \
+  --cacert ~/.docker/machine/certs/ca.pem \
+  --cert ~/.docker/machine/certs/cert.pfx \
+  --pass swarm
+```
+
+```
+$ docker logs swarm-cluster-state-manager
+```
+
+```
+...
+2015/11/19 18:03:05 updating nginx cluster state
+2015/11/19 18:03:12 removing 2 nginx containers
+2015/11/19 18:03:12 removed nginx container: b3204f60b3d0130d357bcd429a46af54cb640e9068abed4ef281b9eba7969761
+2015/11/19 18:03:12 removed nginx container: 67532a34aa04f346d1d0cae7947c4f64361da9058ba0b84ec4d4b57f9b443337
 ```
 
 ### Get the current status
@@ -102,8 +155,19 @@ $ curl https://<swarm-master-ip>:2476/submit \
 The following command retrieves the cluster status from the Swarm cluster state manager.
 
 ```
-$ curl https://<swarm-master-ip>:2476/status \
+$ curl https://$(docker-machine ip swarm-master):3476/status \
   --cacert ~/.docker/machine/certs/ca.pem \
   --cert ~/.docker/machine/certs/cert.pfx \
   --pass swarm
+```
+
+```
+{
+...
+    "CurrentCount": 5,
+    "DesiredCount": 5,
+    "Image": "nginx:1.9.6",
+    "Name": "nginx"
+}
+...
 ```

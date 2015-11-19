@@ -130,6 +130,8 @@ Starting Swarm cluster state manager...
 
 ### Update the Cluster state
 
+Reduce the number of desired running nginx containers to 3: 
+
 ```
 $ curl https://$(docker-machine ip swarm-master):3476/submit \
   -d '{"Name": "nginx", "Image": "nginx:1.9.6", "Count": 3}' \
@@ -137,6 +139,8 @@ $ curl https://$(docker-machine ip swarm-master):3476/submit \
   --cert ~/.docker/machine/certs/cert.pfx \
   --pass swarm
 ```
+
+Observe the swarm-cluster-state-manager service logs
 
 ```
 $ docker logs swarm-cluster-state-manager

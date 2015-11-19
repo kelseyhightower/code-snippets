@@ -18,22 +18,25 @@ Usage of swarm-cluster-state-manager:
   -swarm-manager string
     	Docker Swarm manager address (default "tcp://127.0.0.1:2376")
   -tlscacert string
-    	Trust certs signed only by this CA (default "~/.docker/machine/certs/ca.pem")
+    	Trust certs signed only by this CA
   -tlscert string
-    	Path to TLS certificate file (default "~/.docker/machine/certs/cert.pem")
+    	Path to TLS certificate file
   -tlskey string
-    	Path to TLS key file (default "~/.docker/machine/certs/key.pem")
+    	Path to TLS key file
 ```
 
 ### Start the swarm cluster state manager
 
-By default `swarm-cluster-state-manager` will reuse the TLS certs created by docker-machine and will
-listen for remote connections on https://127.0.0.1:2476. TLS client authentication is required, see
-next section.
+By default `swarm-cluster-state-manager` will listen for remote connections on https://127.0.0.1:2476.
+TLS client authentication is required, see next section.
 
 ```
 $ swarm-cluster-state-manager \
+  --addr 127.0.0.1:2476 \
   --swarm-manager "tcp://104.197.107.13:2376" \
+  --tlscacert ~/.docker/machine/certs/ca.pem \
+  --tlscert ~/.docker/machine/certs/cert.pem \
+  --tlskey ~/.docker/machine/certs/key.pem
 ```
 ```
 Starting Swarm cluster state manager...
